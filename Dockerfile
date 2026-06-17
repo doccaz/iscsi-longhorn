@@ -1,8 +1,6 @@
-FROM registry.suse.com/bci/bci-base:latest
+FROM registry.suse.com/bci/python:3
 
 RUN zypper --non-interactive install -y \
-        python3 \
-        python3-pip \
         kmod \
     && zypper clean -a \
     && rm -rf /var/cache/zypp/*

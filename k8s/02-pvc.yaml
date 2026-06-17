@@ -1,7 +1,11 @@
+# One PVC per iSCSI target. Add as many blocks as you need.
+# Each PVC maps to one IQN via the indexed env vars in 03-deployment.yaml:
+#   BLOCK_DEVICE_N / IQN_N / TARGET_NAME_N
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: iscsi-target-vol
+  name: iscsi-vol-1
   namespace: iscsi-target
 spec:
   accessModes:
@@ -10,4 +14,18 @@ spec:
   storageClassName: longhorn
   resources:
     requests:
-      storage: 100Gi         # adjust to your needs
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: iscsi-vol-2
+  namespace: iscsi-target
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Block
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 200Gi

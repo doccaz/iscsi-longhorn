@@ -14,16 +14,13 @@ spec:
         app: iscsi-target
     spec:
       # Uses the host network so port 3260 is exposed directly on the node IP.
-      # External hosts connect to whichever node this pod is scheduled on.
       hostNetwork: true
       hostPID: false
 
       # Optional: pin to a specific node for a stable, predictable IP.
-      # If omitted, the pod can land on any node (and move on failure).
       # nodeSelector:
       #   kubernetes.io/hostname: harvester-node-1
 
-      # Give the pod enough time to cleanly tear down the iSCSI target
       terminationGracePeriodSeconds: 30
 
       containers:
@@ -34,15 +31,26 @@ spec:
         securityContext:
           privileged: true   # required: modprobe + configfs access
 
+        # ── Multi-target mapping ──────────────────────────────────────────────
+        # Each numbered group (BLOCK_DEVICE_N / IQN_N / TARGET_NAME_N) maps one
+        # Longhorn PVC (volumeDevices below) to one iSCSI IQN.
+        # Add or remove groups to match the number of PVCs you defined in 02-pvc.yaml.
         env:
-        - name: BLOCK_DEVICE
-          value: /dev/iscsi-vol
-        - name: IQN
-          value: iqn.2024-01.com.example:harvester-target   # ← customise
-        - name: TARGET_NAME
-          value: harvester-vol
+        - name: BLOCK_DEVICE_1
+          value: /dev/iscsi-vol-1
+        - name: IQN_1
+          value: iqn.2024-01.com.example:target-1   # ← customise
+        - name: TARGET_NAME_1
+          value: vol-1
 
-        # Uncomment to enable CHAP authentication.
+        - name: BLOCK_DEVICE_2
+          value: /dev/iscsi-vol-2
+        - name: IQN_2
+          value: iqn.2024-01.com.example:target-2   # ← customise
+        - name: TARGET_NAME_2
+          value: vol-2
+
+        # Uncomment to enable CHAP authentication (applies to all targets).
         # Create the secret first:
         #   kubectl create secret generic iscsi-chap -n iscsi-target \
         #     --from-literal=username=myuser --from-literal=password=mypassword
@@ -66,15 +74,16 @@ spec:
             cpu: 500m
             memory: 128Mi
 
-        # configfs is how userspace (targetcli) talks to the kernel LIO subsystem
         volumeMounts:
         - name: configfs
           mountPath: /sys/kernel/config
 
-        # The Longhorn block device is presented as a raw device inside the container
+        # One entry per PVC — devicePath must match BLOCK_DEVICE_N above.
         volumeDevices:
-        - name: data
-          devicePath: /dev/iscsi-vol
+        - name: data-1
+          devicePath: /dev/iscsi-vol-1
+        - name: data-2
+          devicePath: /dev/iscsi-vol-2
 
       volumes:
       - name: configfs
@@ -82,6 +91,10 @@ spec:
           path: /sys/kernel/config
           type: DirectoryOrCreate
 
-      - name: data
+      # One entry per PVC — claimName must match a PVC from 02-pvc.yaml.
+      - name: data-1
         persistentVolumeClaim:
-          claimName: iscsi-target-vol
+          claimName: iscsi-vol-1
+      - name: data-2
+        persistentVolumeClaim:
+          claimName: iscsi-vol-2
