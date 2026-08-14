@@ -44,6 +44,19 @@ CHAP secret) into one parameterized chart — the target list, write-protection
 mode, CHAP, and node placement are all `values.yaml` knobs instead of manually
 edited manifests.
 
+The chart is published as a Helm repo via GitHub Pages:
+
+```bash
+helm repo add iscsi-longhorn https://doccaz.github.io/iscsi-longhorn
+helm repo update
+
+helm install iscsi-target iscsi-longhorn/iscsi-longhorn \
+  --set image.repository=your-registry/iscsi-target \
+  --set image.tag=latest
+```
+
+Or install straight from a local checkout:
+
 ```bash
 helm install iscsi-target ./charts/iscsi-longhorn \
   --set image.repository=your-registry/iscsi-target \
@@ -54,7 +67,7 @@ For the SQL Server FCI/WSFC lab scenario (see below), use the bundled preset —
 it provisions a witness + data LUN pair with read/write access for both nodes:
 
 ```bash
-helm install sql-iscsi ./charts/iscsi-longhorn \
+helm install sql-iscsi iscsi-longhorn/iscsi-longhorn \
   --set image.repository=your-registry/iscsi-target \
   -f charts/iscsi-longhorn/examples/values-sql-fci.yaml
 ```
@@ -62,6 +75,13 @@ helm install sql-iscsi ./charts/iscsi-longhorn \
 See `charts/iscsi-longhorn/values.yaml` for all options. The sections below
 describe the same deployment using raw manifests in `k8s/`, useful if you'd
 rather not use Helm or want to see exactly what gets created.
+
+**Releasing new chart versions:** bump `version:` in
+`charts/iscsi-longhorn/Chart.yaml`, commit, and push to `main`. The
+`.github/workflows/release-charts.yml` workflow (chart-releaser) packages the
+chart, creates a GitHub Release (tag `iscsi-longhorn-<version>`) with the
+`.tgz` attached, and updates the `gh-pages` branch's `index.yaml` — no manual
+`helm package`/`helm repo index` steps needed.
 
 ---
 
