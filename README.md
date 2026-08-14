@@ -425,6 +425,56 @@ SQL Server FCI installation.
   cluster *behavior* (failover logic, validation wizards, application testing), not
   for production availability guarantees.
 
+### Production considerations
+
+**KubeVirt's native `PersistentReservation` feature gate is the "proper" way to
+get SCSI-3 PR to a guest**, forwarding PR ioctls through `qemu-pr-helper` to a
+shared PVC. It requires an external SAN, a CSI driver with RWX + Block
+support, and that feature gate enabled on the KubeVirt CR — none of which this
+chart depends on, since it bypasses KubeVirt storage entirely. See
+`reference/links.txt` for further notes.
+
+**The production-viable path is the same one this chart demonstrates, just
+pointed at a real SAN:** bypass KubeVirt storage entirely and connect the
+guest OS's in-guest iSCSI initiator directly to the array's iSCSI target (or
+an iSCSI gateway in front of FC storage), exactly as done here with
+Longhorn-backed LIO LUNs. This is also the traditional way WSFC has been
+deployed on virtualized platforms for years (VMware, Hyper-V), precisely
+because hypervisor-level clustered-disk pass-through has always been
+fragile/vendor-specific.
+
+Performance implications of that approach in production:
+
+- **Extra network layer.** In-guest iSCSI means the guest does full TCP/IP +
+  iSCSI protocol processing in software over a virtual NIC, then crosses the
+  hypervisor's SDN overlay (Harvester uses Kube-OVN — Geneve/VXLAN
+  encapsulation) before reaching a physical NIC. This is a longer path than a
+  CSI-backed `virtio-blk`/`virtio-scsi` device, and there's no hardware
+  iSCSI/TOE offload available to the VM — the guest's software initiator
+  spends vCPU cycles that would otherwise go to the application (e.g. SQL
+  Server query processing).
+- **Latency matters more than throughput.** Raw sequential throughput on
+  10/25GbE with jumbo frames can approach line rate, but the real-world impact
+  for an OLTP FCI workload is slightly higher per-IO latency (e.g. log write
+  commit latency), not necessarily lower peak IOPS.
+- **Overlay MTU overhead.** Kube-OVN's encapsulation adds header bytes per
+  packet, eating into effective MTU unless jumbo frames (9000) are configured
+  consistently end-to-end — physical switches, Harvester network, VM vNIC, and
+  guest OS. Easier to get wrong on an SDN platform than on a flat physical
+  network.
+- **Mitigations that work in practice:** a dedicated storage VLAN/network with
+  jumbo frames end-to-end, in-guest MPIO across multiple vNICs/paths for
+  redundancy and aggregate throughput, sizing vCPU with headroom for the
+  software iSCSI initiator, tuning RSS on the guest NIC, and loosening WSFC
+  heartbeat/lease timeouts slightly versus a bare-metal deployment to avoid
+  false failovers from occasional latency spikes.
+
+None of this is exotic — it's the same order of overhead accepted by any
+in-guest-iSCSI WSFC deployment run in production for over a decade. The
+trade-off is acceptable for most OLTP workloads in exchange for a working
+SCSI-3 PR path that doesn't depend on the KubeVirt `PersistentReservation`
+feature gate at all.
+
 ---
 
 ## Troubleshooting
