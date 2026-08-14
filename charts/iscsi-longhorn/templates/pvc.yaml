@@ -1,0 +1,16 @@
+{{- range .Values.targets }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: iscsi-{{ .name }}
+  namespace: {{ $.Values.namespace.name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Block
+  storageClassName: {{ $.Values.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .storage }}
+{{- end }}

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "iscsi-longhorn.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "iscsi-longhorn.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "iscsi-longhorn.fullname" . }}
+    spec:
+      hostNetwork: {{ .Values.hostNetwork }}
+      hostPID: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+      - name: iscsi-target
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+        securityContext:
+          privileged: true   # required: modprobe + configfs access
+
+        env:
+        {{- range $i, $t := .Values.targets }}
+        - name: BLOCK_DEVICE_{{ add $i 1 }}
+          value: {{ $t.device | quote }}
+        - name: IQN_{{ add $i 1 }}
+          value: {{ $t.iqn | quote }}
+        - name: TARGET_NAME_{{ add $i 1 }}
+          value: {{ $t.name | quote }}
+        {{- end }}
+        - name: DEMO_MODE_WRITE_PROTECT
+          value: {{ .Values.writeProtect | ternary "1" "0" | quote }}
+        {{- if .Values.chap.enabled }}
+        - name: CHAP_USERID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "iscsi-longhorn.chapSecretName" . }}
+              key: username
+        - name: CHAP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "iscsi-longhorn.chapSecretName" . }}
+              key: password
+        {{- end }}
+
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+
+        volumeMounts:
+        - name: configfs
+          mountPath: /sys/kernel/config
+
+        volumeDevices:
+        {{- range .Values.targets }}
+        - name: data-{{ .name }}
+          devicePath: {{ .device }}
+        {{- end }}
+
+      volumes:
+      - name: configfs
+        hostPath:
+          path: /sys/kernel/config
+          type: DirectoryOrCreate
+      {{- range .Values.targets }}
+      - name: data-{{ .name }}
+        persistentVolumeClaim:
+          claimName: iscsi-{{ .name }}
+      {{- end }}

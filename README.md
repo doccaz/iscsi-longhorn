@@ -37,6 +37,34 @@ Multi-portal section below.
 
 ---
 
+## Quick start — Helm chart (recommended)
+
+`charts/iscsi-longhorn/` wraps everything below (namespace, PVCs, Deployment,
+CHAP secret) into one parameterized chart — the target list, write-protection
+mode, CHAP, and node placement are all `values.yaml` knobs instead of manually
+edited manifests.
+
+```bash
+helm install iscsi-target ./charts/iscsi-longhorn \
+  --set image.repository=your-registry/iscsi-target \
+  --set image.tag=latest
+```
+
+For the SQL Server FCI/WSFC lab scenario (see below), use the bundled preset —
+it provisions a witness + data LUN pair with read/write access for both nodes:
+
+```bash
+helm install sql-iscsi ./charts/iscsi-longhorn \
+  --set image.repository=your-registry/iscsi-target \
+  -f charts/iscsi-longhorn/examples/values-sql-fci.yaml
+```
+
+See `charts/iscsi-longhorn/values.yaml` for all options. The sections below
+describe the same deployment using raw manifests in `k8s/`, useful if you'd
+rather not use Helm or want to see exactly what gets created.
+
+---
+
 ## 1. Build and push the image
 
 ```bash
@@ -287,6 +315,95 @@ nodeSelector:
 ```
 
 Trade-off: the pod will NOT reschedule if that node fails.
+
+---
+
+## Testing SQL Server FCI / WSFC (lab only)
+
+This project can be used to lab-test a SQL Server **Failover Cluster Instance (FCI)**
+under Harvester without owning an external enterprise SAN + CSI driver. Windows
+Server Failover Clustering (WSFC) requires shared storage that supports **SCSI-3
+Persistent Reservations (SCSI-3 PR)**. Longhorn/KubeVirt PVCs attached directly to a
+VM do not support PR for shared volumes — that path needs an external SAN, a CSI
+driver with RWX + Block support, and the KubeVirt `PersistentReservation` feature
+gate (which drives `qemu-pr-helper`).
+
+The workaround: **bypass KubeVirt storage entirely.** Expose Longhorn-backed block
+devices as real iSCSI LUNs from this pod (kernel LIO, which fully implements SPC-3
+PR), and connect the Windows guest VMs directly to them with the **in-guest iSCSI
+initiator** — same as connecting to any physical iSCSI SAN. WSFC then talks SCSI-3 PR
+straight to LIO.
+
+> **This is a lab/testing substitute, not a production pattern.** For production HA,
+> prefer SQL Server Always On **Availability Groups** (no shared storage, no SCSI-3 PR
+> needed). If FCI is strictly required in production, use a certified enterprise SAN
+> with a CSI driver instead of this container.
+
+### 1. Provision two LUNs: witness + data
+
+A typical two-node FCI test cluster needs a small witness/quorum disk and a data
+disk. Add both to `k8s/02-pvc.yaml` and map them in `03-deployment.yaml` using the
+multi-target env vars (see section 3 above):
+
+```yaml
+env:
+- name: BLOCK_DEVICE_1
+  value: /dev/iscsi-witness
+- name: IQN_1
+  value: iqn.2024-01.com.example:sql-witness
+- name: TARGET_NAME_1
+  value: sql-witness
+
+- name: BLOCK_DEVICE_2
+  value: /dev/iscsi-data
+- name: IQN_2
+  value: iqn.2024-01.com.example:sql-data
+- name: TARGET_NAME_2
+  value: sql-data
+```
+
+A 1 GB PVC is enough for the witness disk; size the data disk for your test database.
+
+### 2. Connect both SQL Server VMs
+
+On **each** Windows Server node that will join the WSFC cluster:
+
+1. Open **iSCSI Initiator** (`iscsicpl.exe`).
+2. Discover the target portal — the Harvester node IP running this pod (see step 4
+   in the main setup above).
+3. Log in to **both** IQNs (witness and data).
+4. In **Disk Management**, bring the new disks online and initialize them (leave
+   them unformatted/raw if WSFC will format them, or format NTFS if required by
+   your FCI setup).
+
+Both nodes must connect to the *same* two LUNs — that's what gives WSFC shared
+storage. Access is unrestricted (`demo_mode_write_protect=0`, `generate_node_acls=1`)
+by default, so any initiator that can reach port 3260 gets read/write access. Enable
+[CHAP](#7-chap-authentication-optional) if you want to restrict who can connect.
+
+### 3. Validate storage in WSFC
+
+From either node, run the storage-only cluster validation:
+
+```powershell
+Test-Cluster -Node "SQL-NODE-01","SQL-NODE-02" -Include "Storage"
+```
+
+A **Passed** result for the persistent reservation tests confirms LIO is correctly
+handling `PERSISTENT RESERVE IN`/`OUT` (SPC-3 PR) and you can proceed with WSFC and
+SQL Server FCI installation.
+
+### Caveats
+
+- **Not zero-downtime.** As noted above, this pod runs as a single replica; if its
+  node fails, Kubernetes reschedules it and the iSCSI sessions drop (~30–60 s). The
+  Windows initiators will need to reconnect — WSFC itself will treat this the same
+  way it would treat a SAN controller failover blip, but it's not equivalent to true
+  multipath SAN redundancy.
+- **Lab-grade PR, not hardware-offloaded.** LIO's PR implementation is spec-complete,
+  but there's no redundant target-side hardware here — this is meant for validating
+  cluster *behavior* (failover logic, validation wizards, application testing), not
+  for production availability guarantees.
 
 ---
 

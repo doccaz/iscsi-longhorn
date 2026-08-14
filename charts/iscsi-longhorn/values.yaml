@@ -1,0 +1,59 @@
+image:
+  repository: your-registry/iscsi-target
+  tag: latest
+  pullPolicy: Always
+
+namespace:
+  create: true
+  name: iscsi-target
+
+storageClassName: longhorn
+
+# One entry per iSCSI target. Each becomes one Block-mode PVC + one IQN.
+# For SQL Server FCI/WSFC testing, use two entries (witness + data) —
+# see examples/values-sql-fci.yaml.
+targets:
+  - name: vol-1
+    iqn: iqn.2024-01.com.example:target-1
+    device: /dev/iscsi-vol-1
+    storage: 100Gi
+
+# Exposes port 3260 directly on the node's IP. This is the default/simple path —
+# no Service needed, works as long as the Windows/Linux initiators can reach the
+# Harvester node network.
+hostNetwork: true
+
+# Only used when hostNetwork is false — an alternative way to expose port 3260.
+service:
+  enabled: false
+  type: NodePort
+  port: 3260
+
+# 0/false = auto-generated ACLs get read+write access. Required for multi-initiator
+# clients that must share a disk concurrently (e.g. both WSFC nodes on a quorum or
+# data LUN). 1/true = LIO's default, read-only — fine for a single-initiator test.
+writeProtect: false
+
+chap:
+  enabled: false
+  # Set to reuse a Secret you created yourself (must have `username`/`password` keys).
+  # Leave empty and set username/password below to have the chart create one.
+  existingSecret: ""
+  username: ""
+  password: ""
+
+# Pin the pod to a specific node for a stable, predictable portal IP.
+# Trade-off: the pod will NOT reschedule if that node fails.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 128Mi
+
+terminationGracePeriodSeconds: 30

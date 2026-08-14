@@ -1,0 +1,27 @@
+# Lab preset for testing SQL Server FCI / WSFC storage validation.
+# Provisions a small witness (quorum) disk and a data disk, both writable by
+# any initiator that can reach port 3260 (both SQL Server VMs need concurrent
+# read/write access — see README "Testing SQL Server FCI / WSFC").
+#
+# Usage:
+#   helm install sql-iscsi ./charts/iscsi-longhorn \
+#     --set image.repository=your-registry/iscsi-target \
+#     -f charts/iscsi-longhorn/examples/values-sql-fci.yaml
+
+targets:
+  - name: sql-witness
+    iqn: iqn.2024-01.com.example:sql-witness
+    device: /dev/iscsi-witness
+    storage: 1Gi
+  - name: sql-data
+    iqn: iqn.2024-01.com.example:sql-data
+    device: /dev/iscsi-data
+    storage: 200Gi
+
+writeProtect: false
+
+# Pin to a known node so the iSCSI portal IP is stable while you configure the
+# Windows initiators. Remove once you've validated things work and want normal
+# rescheduling behavior back.
+# nodeSelector:
+#   kubernetes.io/hostname: harvester-node-1

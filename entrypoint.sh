@@ -10,6 +10,9 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 # Single-target (legacy) fallback: set BLOCK_DEVICE / IQN / TARGET_NAME.
 CHAP_USERID="${CHAP_USERID:-}"
 CHAP_PASSWORD="${CHAP_PASSWORD:-}"
+# 0 = auto-generated ACLs get read+write (needed for multi-initiator clients like
+#     WSFC nodes sharing a quorum/data disk). 1 = LIO default, read-only.
+DEMO_MODE_WRITE_PROTECT="${DEMO_MODE_WRITE_PROTECT:-0}"
 
 # Build TARGETS array: each element is "device|iqn|name"
 TARGETS=()
@@ -78,6 +81,7 @@ for _t in "${TARGETS[@]}"; do
 /iscsi/${_iqn}/tpg1/luns create /backstores/block/${_name}
 /iscsi/${_iqn}/tpg1/ set attribute authentication=0
 /iscsi/${_iqn}/tpg1/ set attribute generate_node_acls=1
+/iscsi/${_iqn}/tpg1/ set attribute demo_mode_write_protect=${DEMO_MODE_WRITE_PROTECT}
 saveconfig
 EOF
 
