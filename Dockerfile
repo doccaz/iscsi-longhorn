@@ -2,10 +2,12 @@ FROM registry.suse.com/bci/python:3
 
 RUN zypper --non-interactive install -y \
         kmod \
+        python313-curses \
     && zypper clean -a \
     && rm -rf /var/cache/zypp/*
 
 # targetcli-fb uses kernel LIO via configfs — no host OS packages needed
+# configshell_fb needs curses, which the bci/python image ships as a separate package
 RUN pip3 install --no-cache-dir configshell-fb rtslib-fb targetcli-fb
 
 COPY entrypoint.sh /entrypoint.sh
