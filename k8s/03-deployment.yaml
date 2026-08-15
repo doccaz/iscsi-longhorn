@@ -77,6 +77,11 @@ spec:
         volumeMounts:
         - name: configfs
           mountPath: /sys/kernel/config
+        - name: modules
+          mountPath: /lib/modules
+          readOnly: true
+        - name: dbus
+          mountPath: /run/dbus/system_bus_socket
 
         # One entry per PVC — devicePath must match BLOCK_DEVICE_N above.
         volumeDevices:
@@ -90,6 +95,18 @@ spec:
         hostPath:
           path: /sys/kernel/config
           type: DirectoryOrCreate
+      # modprobe needs the host's actual module files — the container's own
+      # /lib/modules is empty since it doesn't share the host's kernel build.
+      - name: modules
+        hostPath:
+          path: /lib/modules
+          type: Directory
+      # targetcli queries the system D-Bus (TCMU/user-backstore enumeration)
+      # even though this manifest doesn't use TCMU backstores.
+      - name: dbus
+        hostPath:
+          path: /run/dbus/system_bus_socket
+          type: Socket
 
       # One entry per PVC — claimName must match a PVC from 02-pvc.yaml.
       - name: data-1

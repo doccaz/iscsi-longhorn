@@ -76,7 +76,7 @@ for _t in "${TARGETS[@]}"; do
 
   log "Creating iSCSI target ${_iqn} → ${_dev}..."
   targetcli <<EOF
-/backstores/block create name=${_name} dev=${_dev} write_back=false
+/backstores/block create name=${_name} dev=${_dev}
 /iscsi create ${_iqn}
 /iscsi/${_iqn}/tpg1/luns create /backstores/block/${_name}
 /iscsi/${_iqn}/tpg1/ set attribute authentication=0

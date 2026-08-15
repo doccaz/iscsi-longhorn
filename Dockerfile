@@ -19,6 +19,9 @@ RUN zypper --non-interactive install -y \
 # SLE_BCI repo doesn't ship (only the older girepository-1.0 headers).
 RUN pip3 install --no-cache-dir configshell-fb rtslib-fb targetcli-fb "pygobject<3.52" six
 
+# rtslib's dbroot (/etc/target) isn't created by the package
+RUN mkdir -p /etc/target
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
