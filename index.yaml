@@ -3,6 +3,16 @@ entries:
   iscsi-longhorn:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-08-15T14:48:50.915294324Z"
+    description: Expose Longhorn block volumes as kernel LIO iSCSI targets on Harvester
+    digest: fb3fe8689e062863a5de4b0280288d6bc9b8986ee38e0945efaea29987ac1fe7
+    name: iscsi-longhorn
+    type: application
+    urls:
+    - https://github.com/doccaz/iscsi-longhorn/releases/download/iscsi-longhorn-0.1.2/iscsi-longhorn-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-08-14T17:59:27.2596048-03:00"
     description: Expose Longhorn block volumes as kernel LIO iSCSI targets on Harvester
     digest: 745c09413ba423ececd04b6f8514808b891cb5412e97d98407a86bcf8a15b3f8
@@ -11,4 +21,4 @@ entries:
     urls:
     - https://github.com/doccaz/iscsi-longhorn/releases/download/iscsi-longhorn-0.1.1/iscsi-longhorn-0.1.1.tgz
     version: 0.1.1
-generated: "2026-08-14T17:59:27.259264227-03:00"
+generated: "2026-08-15T14:48:50.915302389Z"
