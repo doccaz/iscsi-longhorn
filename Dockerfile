@@ -3,6 +3,7 @@ FROM registry.suse.com/bci/python:3
 RUN zypper --non-interactive install -y \
         kmod \
         python313-curses \
+        python313-gobject \
     && zypper clean -a \
     && rm -rf /var/cache/zypp/*
 
