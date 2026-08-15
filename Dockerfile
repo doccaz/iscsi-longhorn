@@ -6,7 +6,7 @@ RUN zypper --non-interactive install -y \
     && rm -rf /var/cache/zypp/*
 
 # targetcli-fb uses kernel LIO via configfs — no host OS packages needed
-RUN pip3 install --no-cache-dir targetcli-fb rtslib-fb
+RUN pip3 install --no-cache-dir configshell-fb rtslib-fb targetcli-fb
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
