@@ -5,7 +5,6 @@
 #
 # Usage:
 #   helm install sql-iscsi ./charts/iscsi-longhorn \
-#     --set image.repository=your-registry/iscsi-target \
 #     -f charts/iscsi-longhorn/examples/values-sql-fci.yaml
 
 targets:

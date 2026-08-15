@@ -1,5 +1,5 @@
 image:
-  repository: your-registry/iscsi-target
+  repository: ghcr.io/doccaz/iscsi-longhorn
   tag: latest
   pullPolicy: Always
 

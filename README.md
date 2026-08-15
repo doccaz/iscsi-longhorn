@@ -50,17 +50,19 @@ The chart is published as a Helm repo via GitHub Pages:
 helm repo add iscsi-longhorn https://doccaz.github.io/iscsi-longhorn
 helm repo update
 
-helm install iscsi-target iscsi-longhorn/iscsi-longhorn \
-  --set image.repository=your-registry/iscsi-target \
-  --set image.tag=latest
+helm install iscsi-target iscsi-longhorn/iscsi-longhorn
 ```
+
+The chart defaults to `ghcr.io/doccaz/iscsi-longhorn:latest`, built and
+published automatically by `.github/workflows/publish-image.yml` on every
+push to `main`. Point at your own image instead with
+`--set image.repository=... --set image.tag=...` if you fork this repo or
+build your own.
 
 Or install straight from a local checkout:
 
 ```bash
-helm install iscsi-target ./charts/iscsi-longhorn \
-  --set image.repository=your-registry/iscsi-target \
-  --set image.tag=latest
+helm install iscsi-target ./charts/iscsi-longhorn
 ```
 
 For the SQL Server FCI/WSFC lab scenario (see below), use the bundled preset —
@@ -68,7 +70,6 @@ it provisions a witness + data LUN pair with read/write access for both nodes:
 
 ```bash
 helm install sql-iscsi iscsi-longhorn/iscsi-longhorn \
-  --set image.repository=your-registry/iscsi-target \
   -f charts/iscsi-longhorn/examples/values-sql-fci.yaml
 ```
 
@@ -76,16 +77,16 @@ See `charts/iscsi-longhorn/values.yaml` for all options. The sections below
 describe the same deployment using raw manifests in `k8s/`, useful if you'd
 rather not use Helm or want to see exactly what gets created.
 
-**Releasing new chart versions:** bump `version:` in
-`charts/iscsi-longhorn/Chart.yaml`, commit, and push to `main`. The
-`.github/workflows/release-charts.yml` workflow (chart-releaser) packages the
-chart, creates a GitHub Release (tag `iscsi-longhorn-<version>`) with the
-`.tgz` attached, and updates the `gh-pages` branch's `index.yaml` — no manual
-`helm package`/`helm repo index` steps needed.
-
 ---
 
 ## 1. Build and push the image
+
+Pushes to `main` that touch `Dockerfile` or `entrypoint.sh` automatically
+build and publish `ghcr.io/doccaz/iscsi-longhorn:latest` via
+`.github/workflows/publish-image.yml` — no manual step needed if you're
+using this repo as-is.
+
+If you forked the project or want your own image, build and push manually:
 
 ```bash
 cd iscsi-longhorn
@@ -94,7 +95,9 @@ podman build -t your-registry/iscsi-target:latest .
 podman push your-registry/iscsi-target:latest
 ```
 
-Replace `your-registry` with your actual registry (e.g. `docker.io/myuser`).
+Replace `your-registry` with your actual registry (e.g. `docker.io/myuser`),
+and update `k8s/03-deployment.yaml` or `image.repository` in `values.yaml`
+to match.
 
 ---
 

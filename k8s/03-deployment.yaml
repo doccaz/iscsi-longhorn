@@ -25,7 +25,7 @@ spec:
 
       containers:
       - name: iscsi-target
-        image: your-registry/iscsi-target:latest   # ← replace with your image
+        image: ghcr.io/doccaz/iscsi-longhorn:latest   # ← or your own image
         imagePullPolicy: Always
 
         securityContext:
